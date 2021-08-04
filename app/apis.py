@@ -4,6 +4,7 @@ from .models import Email
 from enum import Enum
 from setup.settings import API_KEYS, DEFAULT_EMAIL_PROVIDER
 import requests
+import re
 
 
 # QUEUED and FAILED enums only apply to snailgun
@@ -37,6 +38,31 @@ class EmailListSerializer(serializers.ModelSerializer):
     # email provider defined in DEFAULT_EMAIL_PROVIDER and then save it to the database
     def create(self, validated_data):
         email = Email(**validated_data)
+        email.subject = email.subject.strip()
+        email.body = email.body.strip()
+        email.to_name = email.to_name.strip()
+        email.to_email = email.to_email.strip()
+        email.from_name = email.from_name.strip()
+        email.from_email = email.from_email.strip()
+
+        if email.subject == '':
+            raise APIException('Subject cannot be empty!')
+
+        if email.to_name == '':
+            raise APIException('To_name cannot be empty!')
+
+        if email.to_email == '':
+            raise APIException('To_email cannot be empty!')
+        elif not EmailListSerializer.validate_email(email.to_email):
+            raise APIException('Invalid to_email format!')
+
+        if email.from_name == '':
+            raise APIException('From_name cannot be empty!')
+
+        if email.from_email == '':
+            raise APIException('From_email cannot be empty!')
+        elif not EmailListSerializer.validate_email(email.from_email):
+            raise APIException('Invalid from_email format!')
 
         data = None
         # the data is little different between spendgrid and snailgun
@@ -98,6 +124,11 @@ class EmailListSerializer(serializers.ModelSerializer):
             print(ex)
             raise ex
 
+    #This method validate if the email address is correct or not
+    @staticmethod
+    def validate_email(email_address):
+        reg_expr = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        return re.match(reg_expr, email_address)
 
 # Create email -- POST BASE_URL + emails/
 # Get a single email:
